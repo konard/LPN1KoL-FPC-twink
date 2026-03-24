@@ -36,10 +36,11 @@ class Release:
 
 
 # Получение данных о новом релизе
-def get_tags(current_tag: str) -> list[str] | None:
+def get_tags(current_tag: str, proxy: dict | None = None) -> list[str] | None:
     """
     Получает все теги с GitHub репозитория.
     :param current_tag: текущий тег.
+    :param proxy: словарь с настройками прокси.
 
     :return: список тегов.
     """
@@ -50,7 +51,7 @@ def get_tags(current_tag: str) -> list[str] | None:
             if page != 1:
                 time.sleep(1)
             response = requests.get(f"https://api.github.com/repos/sidor0912/FunPayCardinal/tags?page={page}",
-                                    headers=HEADERS)
+                                    headers=HEADERS, proxies=proxy or {})
             if not response.status_code == 200 or not response.json():
                 logger.debug(f"Update status code is {response.status_code}!")
                 return None
@@ -85,11 +86,12 @@ def get_next_tag(tags: list[str], current_tag: str):
     return tags[curr_index-1]
 
 
-def get_releases(from_tag: str) -> list[Release] | None:
+def get_releases(from_tag: str, proxy: dict | None = None) -> list[Release] | None:
     """
     Получает данные о доступных релизах, начиная с тега.
 
     :param from_tag: тег релиза, с которого начинать поиск.
+    :param proxy: словарь с настройками прокси.
 
     :return: данные релизов.
     """
@@ -100,7 +102,7 @@ def get_releases(from_tag: str) -> list[Release] | None:
             if page != 1:
                 time.sleep(1)
             response = requests.get(f"https://api.github.com/repos/sidor0912/FunPayCardinal/releases?page={page}",
-                                    headers=HEADERS)
+                                    headers=HEADERS, proxies=proxy or {})
             if not response.status_code == 200 or not response.json():
                 logger.debug(f"Update status code is {response.status_code}!")
                 return None
@@ -128,18 +130,19 @@ def get_releases(from_tag: str) -> list[Release] | None:
         return None
 
 
-def get_new_releases(current_tag) -> int | list[Release]:
+def get_new_releases(current_tag, proxy: dict | None = None) -> int | list[Release]:
     """
     Проверяет на наличие обновлений.
 
     :param current_tag: тег текущей версии.
+    :param proxy: словарь с настройками прокси.
 
     :return: список объектов релизов или код ошибки:
         1 - произошла ошибка при получении списка тегов.
         2 - текущий тег является последним.
         3 - не удалось получить данные о релизе.
     """
-    tags = get_tags(current_tag)
+    tags = get_tags(current_tag, proxy=proxy)
     if tags is None:
         return 1
 
@@ -147,23 +150,24 @@ def get_new_releases(current_tag) -> int | list[Release]:
     if next_tag is None:
         return 2
 
-    releases = get_releases(next_tag)
+    releases = get_releases(next_tag, proxy=proxy)
     if releases is None:
         return 3
     return releases
 
 
 #  Загрузка нового релиза
-def download_zip(url: str) -> int:
+def download_zip(url: str, proxy: dict | None = None) -> int:
     """
     Загружает zip архив с обновлением в файл storage/cache/update.zip.
 
     :param url: ссылка на zip архив.
+    :param proxy: словарь с настройками прокси.
 
     :return: 0, если архив с обновлением загружен, иначе - 1.
     """
     try:
-        with requests.get(url, stream=True) as r:
+        with requests.get(url, stream=True, proxies=proxy or {}) as r:
             r.raise_for_status()
             with open("storage/cache/update.zip", 'wb') as f:
                 for chunk in r.iter_content(chunk_size=8192):

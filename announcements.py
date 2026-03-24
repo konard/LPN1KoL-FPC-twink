@@ -47,11 +47,13 @@ def save_last_tag():
         f.write(LAST_TAG)
 
 
-def get_announcement(ignore_last_tag: bool = False) -> dict | None:
+def get_announcement(ignore_last_tag: bool = False, proxy: dict | None = None) -> dict | None:
     """
     Получает информацию об объявлении.
     Если тэг объявления совпадает с сохраненным тегом и ignore_last_tag ложь, возвращает None.
     Если произошла ошибка при получении объявлении, возвращает None.
+
+    :param proxy: словарь с настройками прокси.
 
     :return: словарь с данными объявления.
     """
@@ -61,7 +63,8 @@ def get_announcement(ignore_last_tag: bool = False) -> dict | None:
         'accept': 'application/vnd.github+json'
     }
     try:
-        response = requests.get("https://api.github.com/gists/cfd2177869feab9e64ab62918f708389", headers=headers)
+        response = requests.get("https://api.github.com/gists/cfd2177869feab9e64ab62918f708389",
+                                headers=headers, proxies=proxy or {})
         if not response.status_code == 200:
             return None
 
@@ -73,16 +76,17 @@ def get_announcement(ignore_last_tag: bool = False) -> dict | None:
         return None
 
 
-def download_photo(url: str) -> bytes | None:
+def download_photo(url: str, proxy: dict | None = None) -> bytes | None:
     """
     Загружает фото по URL.
 
     :param url: URL фотографии.
+    :param proxy: словарь с настройками прокси.
 
     :return: фотографию в виде массива байтов.
     """
     try:
-        response = requests.get(url)
+        response = requests.get(url, proxies=proxy or {})
         if response.status_code != 200:
             return None
     except:
@@ -110,17 +114,18 @@ def get_notification_type(data: dict) -> NotificationTypes:
     return types[data.get("type")] if data.get("type") in types else NotificationTypes.critical
 
 
-def get_photo(data: dict) -> bytes | None:
+def get_photo(data: dict, proxy: dict | None = None) -> bytes | None:
     """
     Загружает фотографию по ссылке, если она есть в данных об объявлении.
 
     :param data: данные объявления.
+    :param proxy: словарь с настройками прокси.
 
     :return: фотографию в виде массива байтов или None, если ссылка на фото не найдена или загрузка не удалась.
     """
     if not (photo := data.get("ph")):
         return None
-    return download_photo(u"{}".format(photo))
+    return download_photo(u"{}".format(photo), proxy=proxy)
 
 
 def get_text(data: dict) -> str | None:
@@ -174,7 +179,8 @@ def get_keyboard(data: dict) -> K | None:
 
 def announcements_loop_iteration(crd: Cardinal, ignore_last_tag: bool = False):
     global LAST_TAG
-    if not (data := get_announcement(ignore_last_tag=ignore_last_tag)):
+    proxy = crd.proxy or None
+    if not (data := get_announcement(ignore_last_tag=ignore_last_tag, proxy=proxy)):
         time.sleep(REQUESTS_DELAY)
         return
 
@@ -188,7 +194,7 @@ def announcements_loop_iteration(crd: Cardinal, ignore_last_tag: bool = False):
         LAST_TAG = data.get("tag")
         save_last_tag()
     text = get_text(data)
-    photo = get_photo(data)
+    photo = get_photo(data, proxy=proxy)
     notification_type = get_notification_type(data)
     keyboard = get_keyboard(data)
     pin = get_pin(data)

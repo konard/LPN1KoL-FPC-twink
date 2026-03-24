@@ -40,6 +40,8 @@ class TGBot:
         self.cardinal = cardinal
         self.bot = telebot.TeleBot(self.cardinal.MAIN_CFG["Telegram"]["token"], parse_mode="HTML",
                                    allow_sending_without_reply=True, num_threads=5)
+        if self.cardinal.proxy:
+            telebot.apihelper.proxy = self.cardinal.proxy
 
         self.file_handlers = {}  # хэндлеры, привязанные к получению файла.
         self.attempts = {}  # {user_id: attempts} - попытки авторизации в Telegram ПУ.
@@ -553,7 +555,7 @@ class TGBot:
 
     def check_updates(self, m: Message):
         curr_tag = f"v{self.cardinal.VERSION}"
-        releases = updater.get_new_releases(curr_tag)
+        releases = updater.get_new_releases(curr_tag, proxy=self.cardinal.proxy or None)
         if isinstance(releases, int):
             errors = {
                 1: ["update_no_tags", ()],
@@ -588,7 +590,7 @@ class TGBot:
 
     def update(self, m: Message):
         curr_tag = f"v{self.cardinal.VERSION}"
-        releases = updater.get_new_releases(curr_tag)
+        releases = updater.get_new_releases(curr_tag, proxy=self.cardinal.proxy or None)
         if isinstance(releases, int):
             errors = {
                 1: ["update_no_tags", ()],
@@ -601,7 +603,7 @@ class TGBot:
         if not self.create_backup(m):
             return
         release = releases[-1]
-        if updater.download_zip(release.sources_link) \
+        if updater.download_zip(release.sources_link, proxy=self.cardinal.proxy or None) \
                 or (release_folder := updater.extract_update_archive()) == 1:
             self.bot.send_message(m.chat.id, _("update_download_error"))
             return
